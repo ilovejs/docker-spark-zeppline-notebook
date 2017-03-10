@@ -90,7 +90,6 @@ RUN curl -sL --retry 3 \
  && chown -R root:root $SPARK_HOME
 
 # Zeppelin
-ENV ZEPPELIN_PORT 8886
 ENV ZEPPELIN_HOME /usr/zeppelin
 ENV ZEPPELIN_CONF_DIR $ZEPPELIN_HOME/conf
 ENV ZEPPELIN_NOTEBOOK_DIR $ZEPPELIN_HOME/notebook
@@ -125,7 +124,7 @@ RUN set -ex \
 
 ADD about.json $ZEPPELIN_NOTEBOOK_DIR/2BTRWA9EV/note.json
 
-
+ENV ZEPPELIN_PORT 8886
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
 
 # copy to root
