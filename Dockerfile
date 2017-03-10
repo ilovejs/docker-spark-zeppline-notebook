@@ -1,6 +1,8 @@
 FROM debian:jessie
-MAINTAINER Getty Images "https://github.com/gettyimages"
+# debian 8.7
+MAINTAINER Michael Zhuang "https://github.com/ilovejs"
 
+# local
 RUN apt-get update \
  && apt-get install -y locales \
  && dpkg-reconfigure -f noninteractive locales \
@@ -16,8 +18,12 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
-RUN apt-get update \
+# debian packages
+# Dependency for annaconda is in line start with wget and libxrender1
+RUN apt-get update --fix-missing \
  && apt-get install -y curl unzip \
+    wget bzip2 ca-certificates libglib2.0-0 libxext6 libsm6 \ 
+    libxrender1 git mercurial subversion \
     python3 python3-setuptools \
  && ln -s /usr/bin/python3 /usr/bin/python \
  && easy_install3 pip py4j \
@@ -28,6 +34,22 @@ RUN apt-get update \
 ENV PYTHONHASHSEED 0
 ENV PYTHONIOENCODING UTF-8
 ENV PIP_DISABLE_PIP_VERSION_CHECK 1
+
+# anaconda
+RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
+    wget --quiet https://repo.continuum.io/archive/Anaconda3-4.3.0-Linux-x86_64.sh -O ~/anaconda.sh && \
+    /bin/bash ~/anaconda.sh -b -p /opt/conda && \
+    rm ~/anaconda.sh
+
+ENV PATH /opt/conda/bin:$PATH
+
+# tini
+RUN apt-get install -y grep sed dpkg && \
+    TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
+    curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
+    dpkg -i tini.deb && \
+    rm tini.deb && \
+    apt-get clean
 
 # JAVA
 ARG JAVA_MAJOR_VERSION=8
@@ -69,5 +91,45 @@ RUN curl -sL --retry 3 \
  && mv /usr/$SPARK_PACKAGE $SPARK_HOME \
  && chown -R root:root $SPARK_HOME
 
-WORKDIR $SPARK_HOME
-CMD ["bin/spark-class", "org.apache.spark.deploy.master.Master"]
+# Zeppelin
+ENV ZEPPELIN_PORT 8886
+ENV ZEPPELIN_HOME /usr/zeppelin
+ENV ZEPPELIN_CONF_DIR $ZEPPELIN_HOME/conf
+ENV ZEPPELIN_NOTEBOOK_DIR $ZEPPELIN_HOME/notebook
+ENV ZEPPELIN_COMMIT v0.7.0
+RUN echo '{ "allow_root": true }' > /root/.bowerrc
+RUN set -ex \
+ && buildDeps=' \
+    git \
+    bzip2 \
+    npm \
+ ' \
+ && apt-get update && apt-get install -y --no-install-recommends $buildDeps \
+ && curl -sL http://archive.apache.org/dist/maven/maven-3/3.3.9/binaries/apache-maven-3.3.9-bin.tar.gz \
+   | gunzip \
+   | tar x -C /tmp/ \
+ && git clone https://github.com/apache/zeppelin.git /usr/src/zeppelin \
+ && cd /usr/src/zeppelin \
+ && git checkout -q $ZEPPELIN_COMMIT \
+ && dev/change_scala_version.sh "2.11" \
+ && MAVEN_OPTS="-Xmx2g -XX:MaxPermSize=1024m" /tmp/apache-maven-3.3.9/bin/mvn --batch-mode package -DskipTests -Pscala-2.11 -Pbuild-distr \
+  -pl 'zeppelin-interpreter,zeppelin-zengine,zeppelin-display,spark-dependencies,spark,markdown,angular,shell,hbase,postgresql,jdbc,python,elasticsearch,zeppelin-web,zeppelin-server,zeppelin-distribution' \
+ && tar xvf /usr/src/zeppelin/zeppelin-distribution/target/zeppelin*.tar.gz -C /usr/ \
+ && mv /usr/zeppelin* $ZEPPELIN_HOME \
+ && mkdir -p $ZEPPELIN_HOME/logs \
+ && mkdir -p $ZEPPELIN_HOME/run \
+ && apt-get purge -y --auto-remove $buildDeps \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /usr/src/zeppelin \
+ && rm -rf /root/.m2 \
+ && rm -rf /root/.npm \
+ && rm -rf /tmp/*
+
+ADD about.json $ZEPPELIN_NOTEBOOK_DIR/2BTRWA9EV/note.json
+
+
+ENTRYPOINT [ "/usr/bin/tini", "--" ]
+
+# copy to root
+COPY ./entrypoint.sh /
+ENTRYPOINT ["/entrypoint.sh"]
