@@ -18,30 +18,28 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
-# debian packages
-# Dependency for annaconda is in line start with wget and libxrender1
-RUN apt-get update --fix-missing \
- && apt-get install -y curl unzip \
-    wget bzip2 ca-certificates libglib2.0-0 libxext6 libsm6 \ 
-    libxrender1 git mercurial subversion \
-    python3 python3-setuptools \
- && ln -s /usr/bin/python3 /usr/bin/python \
- && easy_install3 pip py4j \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
-
+# anaconda
 # http://blog.stuart.axelbrooke.com/python-3-on-spark-return-of-the-pythonhashseed
 ENV PYTHONHASHSEED 0
 ENV PYTHONIOENCODING UTF-8
 ENV PIP_DISABLE_PIP_VERSION_CHECK 1
-
-# anaconda
 RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
     wget --quiet https://repo.continuum.io/archive/Anaconda3-4.3.0-Linux-x86_64.sh -O ~/anaconda.sh && \
     /bin/bash ~/anaconda.sh -b -p /opt/conda && \
     rm ~/anaconda.sh
-
 ENV PATH /opt/conda/bin:$PATH
+
+# debian packages
+# Dependency for annaconda is in line start with wget and libxrender1
+RUN apt-get update --fix-missing \
+ && apt-get install -y apt-utils curl unzip \
+    wget bzip2 ca-certificates libglib2.0-0 libxext6 libsm6 \ 
+    libxrender1 git mercurial subversion \
+    # python3 python3-setuptools \
+#  && ln -s /usr/bin/python3 /usr/bin/python \
+ && easy_install3 pip py4j \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 
 # tini
 RUN apt-get install -y grep sed dpkg && \
