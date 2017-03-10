@@ -129,4 +129,6 @@ ENTRYPOINT [ "/usr/bin/tini", "--" ]
 
 # copy to root
 COPY ./entrypoint.sh /
+# can use gosu or http://stackoverflow.com/questions/40471584/invalid-header-field-value-oci-runtime-error-while-running-docker-image
+RUN chmod 755 /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
