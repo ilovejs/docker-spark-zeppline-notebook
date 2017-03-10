@@ -39,7 +39,7 @@ RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
     /bin/bash ~/anaconda.sh -b -p /opt/conda && \
     rm ~/anaconda.sh
 ENV PATH /opt/conda/bin:$PATH
-RUN easy_install3 pip py4j
+RUN pip install py4j
 
 # tini
 RUN apt-get install -y grep sed dpkg && \
